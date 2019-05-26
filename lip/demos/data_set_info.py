@@ -3,7 +3,7 @@ from torchvision.transforms import Compose, RandomCrop, ToTensor
 from tqdm import tqdm
 
 from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset
-from lip.utils.common import CROPPED_IMAGE_SIDE
+from lip.utils.common import WORKING_IMAGE_SIDE
 from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR
 
 if __name__ == '__main__':
@@ -11,7 +11,7 @@ if __name__ == '__main__':
     # READ THE DATASET
     movie_data_set: MovieSuccessDataset = MovieSuccessDataset(MOVIE_DATA_FILE,
                                                               POSTERS_DIR,
-                                                              Compose([RandomCrop(CROPPED_IMAGE_SIDE),
+                                                              Compose([RandomCrop(WORKING_IMAGE_SIDE),
                                                                        ToTensor()]))
 
     # COUNT SUCCESSES

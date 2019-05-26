@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, RandomCrop, ToTensor
 
 from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset
-from lip.utils.common import CROPPED_IMAGE_SIDE
+from lip.utils.common import WORKING_IMAGE_SIDE
 
 
 class PosterNet(nn.Module):
@@ -22,12 +22,13 @@ class PosterNet(nn.Module):
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
         # OUTPUT HAS SIXTEEN CHANNELS
 
-        self.image_side = CROPPED_IMAGE_SIDE // 4  # TWO STEPS OF MAX POOL
+        self.image_side = WORKING_IMAGE_SIDE // 4  # TWO STEPS OF MAX POOL
         self.fc1 = nn.Linear(in_features=16 * self.image_side * self.image_side, out_features=120)
         self.fc2 = nn.Linear(in_features=120, out_features=84)
         self.fc3 = nn.Linear(in_features=84, out_features=10)
 
-        self.fc4 = nn.Linear(in_features=10, out_features=1)
+        self.fc4 = nn.Linear(in_features=10, out_features=2)
+        self.fc5 = nn.Linear(in_features=2, out_features=1)
         self.out = nn.Sigmoid()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -38,6 +39,7 @@ class PosterNet(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         x = self.fc4(x)
+        x = self.fc5(x)
         y = self.out(x)
         return y
 
@@ -49,7 +51,7 @@ if __name__ == '__main__':
     # CREATE A DATASET LOADER
     movie_data_set: MovieSuccessDataset = MovieSuccessDataset(MOVIE_DATA_FILE,
                                                               POSTERS_DIR,
-                                                              Compose([RandomCrop(CROPPED_IMAGE_SIDE),
+                                                              Compose([RandomCrop(WORKING_IMAGE_SIDE),
                                                                        ToTensor()]))
     dummy_loader: DataLoader = DataLoader(movie_data_set)
 
