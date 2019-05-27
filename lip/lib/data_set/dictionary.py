@@ -24,10 +24,10 @@ class Dictionary(object):
     def get_indexed(self, sentence: str) -> List[int]:
         tokenized_sentence: List[str] = nltk.word_tokenize(sentence)
         tokenized_sentence = tokenized_sentence[:self.indexed_size]
-        result: List[int] = []
-        for token in tokenized_sentence:
+        result: List[int] = [0] * 50
+        for index, token in enumerate(tokenized_sentence):
             lemma: str = self.lemmatizer.lemmatize(token)
-            result.append(self.dictionary.get(lemma, 0))
+            result[index] = self.dictionary.get(lemma, 0)
 
         return result
 

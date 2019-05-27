@@ -2,16 +2,16 @@ import copy
 from typing import Dict, List
 
 import torch
-from torch.autograd import Variable
-from torch.utils.data import DataLoader
-from torch.nn import BCELoss
 import torch.optim as optim
-from torchvision.transforms import Compose, RandomCrop, ToTensor, Resize
+from torch.nn import BCELoss
+from torch.utils.data import DataLoader
+from torchvision.transforms import Compose, ToTensor, Resize
 
+from lip.lib.data_set.dictionary import Dictionary
 from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset
 from lip.lib.model.poster_net import PosterNet
 from lip.utils.common import WORKING_IMAGE_SIDE
-from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR
+from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR, DATA_DIR
 
 if __name__ == '__main__':
 
@@ -30,6 +30,7 @@ if __name__ == '__main__':
 
     movie_data_set: MovieSuccessDataset = MovieSuccessDataset(MOVIE_DATA_FILE,
                                                               POSTERS_DIR,
+                                                              Dictionary(DATA_DIR / 'dict2000.json'),
                                                               Compose([Resize((WORKING_IMAGE_SIDE,
                                                                                WORKING_IMAGE_SIDE)),
                                                                        ToTensor()]))
@@ -63,7 +64,7 @@ if __name__ == '__main__':
     optimizer = optim.Adam(net.parameters(), lr=0.001)
 
     # TRAINING
-    NUM_EPOCHS: int = 20
+    NUM_EPOCHS: int = 1
 
     best_model_wts = copy.deepcopy(net.state_dict())
     best_acc = 0.0
@@ -91,7 +92,7 @@ if __name__ == '__main__':
             for index, data in enumerate(data_set_loaders[phase]):
 
                 # GET INPUT AND OUTPUT
-                X, y = data
+                X, Xp, y = data
                 if cuda_available:
                     X = X.to(device)
                     y = y.to(device)
