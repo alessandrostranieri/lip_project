@@ -25,7 +25,8 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if cuda_available else "cpu")
 
     # DATA
-    SPLIT_RATIO = 0.7
+    SPLIT_RATIO: float = 0.7
+    BATCH_SIZE: int = 4
 
     movie_data_set: MovieSuccessDataset = MovieSuccessDataset(MOVIE_DATA_FILE,
                                                               POSTERS_DIR,
@@ -41,8 +42,8 @@ if __name__ == '__main__':
     train_dataset, val_dataset = torch.utils.data.random_split(movie_data_set, [train_data_set_size,
                                                                                 val_data_set_size])
 
-    train_data_set_loader: DataLoader = DataLoader(train_dataset, batch_size=16, shuffle=True, drop_last=True)
-    val_data_set_loader: DataLoader = DataLoader(val_dataset, batch_size=16, shuffle=True, drop_last=True)
+    train_data_set_loader: DataLoader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+    val_data_set_loader: DataLoader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
     data_set_loaders: Dict[str, DataLoader] = {'train': train_data_set_loader,
                                                'val': val_data_set_loader}
 
@@ -66,7 +67,7 @@ if __name__ == '__main__':
 
     best_model_wts = copy.deepcopy(net.state_dict())
     best_acc = 0.0
-    cutoff = torch.tensor([0.5] * 16).reshape((16, 1)).to(device)
+    cutoff = torch.tensor([0.5] * BATCH_SIZE).reshape((BATCH_SIZE, 1)).to(device)
 
     loss_history: Dict[str, List[float]] = {'train': [],
                                             'val': []}
