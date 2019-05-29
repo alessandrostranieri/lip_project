@@ -34,7 +34,12 @@ class PlotNet(nn.Module):
 
         r_out, r_hidden = self.RNN(x)
 
-        x = self.fc1(r_hidden)
+        # THE HIDDEN STATE HAS 3 DIMENSIONS
+        # IT'S THE LAST ARRAY OF A MATRIX OF STATES
+        # WE ELIMINATE THE MIDDLES DIMENSION
+        x = r_hidden.contiguous().view(-1, self.RNN.hidden_size)
+
+        x = self.fc1(x)
         x = self.fc2(x)
         x = self.fc3(x)
         out = self.sigmoid(x)

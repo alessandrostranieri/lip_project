@@ -9,6 +9,7 @@ from torchvision.transforms import Compose, ToTensor, Resize
 
 from lip.lib.data_set.dictionary import Dictionary
 from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset
+from lip.lib.model.plot_net import PlotNet
 from lip.lib.model.poster_net import PosterNet
 from lip.utils.common import WORKING_IMAGE_SIDE
 from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR, DATA_DIR
@@ -21,6 +22,7 @@ if __name__ == '__main__':
         print("CUDA available")
     else:
         print("CUDA not available")
+    # cuda_available = False
 
     device = torch.device("cuda:0" if cuda_available else "cpu")
 
@@ -53,7 +55,7 @@ if __name__ == '__main__':
     print(f'Data-set sizes: {data_set_sizes}')
 
     # MODEL
-    net: PosterNet = PosterNet()
+    net: PosterNet = PlotNet(vocab_size=2001)
     if cuda_available:
         net.cuda(device)
 
@@ -92,9 +94,9 @@ if __name__ == '__main__':
             for index, data in enumerate(data_set_loaders[phase]):
 
                 # GET INPUT AND OUTPUT
-                X, Xp, y = data
+                X_image, X_plot, y = data
                 if cuda_available:
-                    X = X.to(device)
+                    X_plot = X_plot.to(device)
                     y = y.to(device)
 
                 # WE NEED TO ZERO THE GRADIENTS BEFORE TRAINING OVER A BATCH
@@ -103,7 +105,7 @@ if __name__ == '__main__':
                 with torch.set_grad_enabled(phase == 'train'):
 
                     # CALCULATE THE PREDICTION
-                    y_pred = net(X)
+                    y_pred = net(X_plot)
 
                     predicted_labels = (y_pred >= cutoff).float()
                     corrects = (predicted_labels == y).float()
@@ -116,7 +118,7 @@ if __name__ == '__main__':
                         loss.backward()
                         optimizer.step()
 
-                running_loss += loss.item() * X.size(0)
+                running_loss += loss.item() * X_plot.size(0)
                 running_corrects += torch.sum(corrects)
 
             # EPOCH STATISTCS
