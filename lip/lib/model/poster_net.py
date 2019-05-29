@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, RandomCrop, ToTensor
 
+from lip.lib.data_set.dictionary import Dictionary
 from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset
 from lip.utils.common import WORKING_IMAGE_SIDE
 
@@ -46,21 +47,22 @@ class PosterNet(nn.Module):
 
 if __name__ == '__main__':
 
-    from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR
+    from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR, DATA_DIR
 
     # CREATE A DATASET LOADER
     movie_data_set: MovieSuccessDataset = MovieSuccessDataset(MOVIE_DATA_FILE,
                                                               POSTERS_DIR,
+                                                              Dictionary(DATA_DIR / 'dict2000.json'),
                                                               Compose([RandomCrop(WORKING_IMAGE_SIDE),
                                                                        ToTensor()]))
     dummy_loader: DataLoader = DataLoader(movie_data_set)
 
     m = PosterNet()
 
-    for i, (X, y) in enumerate(dummy_loader):
+    for i, (X, Xp, y) in enumerate(dummy_loader):
 
         if i > 0:
-            break;
+            break
 
         y_pred = m.forward(X)
         print(f'Dummy prediction: {y_pred}')
