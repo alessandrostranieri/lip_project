@@ -1,8 +1,7 @@
 import pathlib as pl
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Any
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import torch
 import torchvision.transforms as transforms
@@ -38,28 +37,35 @@ class MovieSuccessDataset(Dataset):
         return len(self.movie_dataset_df)
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        image_path: pl.Path = self.posters_path / str(self.movie_dataset_df['poster_path'].iloc[index])[1:]
-        # image: np.ndarray = io.imread(str(image_path))
-        image: Image = Image.open(image_path)
+        # GET THE RAW DATA
+        data_dict = self.get_data(index)
 
+        # CONVERT IT TO TENSORS
+
+        # 1 - POSTER
         # noinspection PyTypeChecker
-        transformed_image: Tensor = self.transform(image)
+        X_image: Tensor = self.transform(data_dict['image'])
 
-        title: str = self.movie_dataset_df['title'].iloc[index]
+        # 2 - PLOT
+        indexed_plot: List[int] = self.dictionary.get_indexed(data_dict['plot'])
+        X_plot: Tensor = torch.tensor(indexed_plot)
 
-        plot: str = self.movie_dataset_df['overview'].iloc[index]
-        indexed_plot: List[int] = self.dictionary.get_indexed(plot)
-
+        # TARGET
         budget: float = self.movie_dataset_df['budget'].iloc[index]
         revenue: float = self.movie_dataset_df['revenue'].iloc[index]
 
         success_label: float = float((revenue / budget) >= 1.0)
-
-        X_image: Tensor = transformed_image
-        X_plot: Tensor = torch.tensor(indexed_plot)
         y: Tensor = torch.tensor([success_label])
 
         return X_image, X_plot, y
+
+    def get_data(self, index: int) -> Dict[str, Any]:
+        image_path: pl.Path = self.posters_path / str(self.movie_dataset_df['poster_path'].iloc[index])[1:]
+        image: Image = Image.open(image_path)
+        title: str = self.movie_dataset_df['title'].iloc[index]
+        plot: str = self.movie_dataset_df['overview'].iloc[index]
+
+        return {'image': image, 'title': title, 'plot': plot}
 
 
 # QUICK CLASS DEMO
@@ -70,14 +76,16 @@ if __name__ == '__main__':
 
     fig, ax = plt.subplots()
 
-    sample_index: int = 100
-    sample = ms_ds[sample_index]
+    success_index: int = 1000
+    failure_index: int = 1200
+    sample_index: int = success_index
 
-    sample_image: np.ndarray = sample[0].numpy().transpose((1, 2, 0))
-    sample_plot: torch.Tensor = sample[1]
-    print(sample_plot)
+    data_dict = ms_ds.get_data(sample_index)
+    data_t = ms_ds[sample_index]
+    success: str = 'YES' if data_t[2].item() == 1.0 else 'NO'
 
+    ax.set_title(f"Title: {data_dict['title']}\nSuccess: {success}")
     ax.axis('off')
-    ax.imshow(sample_image)
+    ax.imshow(data_dict['image'])
 
     plt.show()
