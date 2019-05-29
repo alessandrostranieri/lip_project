@@ -3,13 +3,14 @@ from typing import Dict, List
 
 import torch
 import torch.optim as optim
+from torch import nn
 from torch.nn import BCELoss
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, Resize
 
 from lip.lib.data_set.dictionary import Dictionary
 from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset
-from lip.lib.model.poster_net import PosterNet
+from lip.lib.model.poster_net import PosterNet, PosterFeaturesNet
 from lip.utils.common import WORKING_IMAGE_SIDE
 from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR, DATA_DIR
 
@@ -53,7 +54,8 @@ if __name__ == '__main__':
     print(f'Data-set sizes: {data_set_sizes}')
 
     # MODEL
-    net: PosterNet = PosterNet()
+    features_nn: nn.Module = PosterFeaturesNet()
+    net: PosterNet = PosterNet(features_nn)
     if cuda_available:
         net.cuda(device)
 
