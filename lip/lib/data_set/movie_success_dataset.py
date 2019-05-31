@@ -37,7 +37,7 @@ class MovieSuccessDataset(Dataset):
     def __len__(self) -> int:
         return len(self.movie_dataset_df)
 
-    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor, int]:
         # GET THE RAW DATA
         data_dict = self.get_data(index)
 
@@ -55,8 +55,8 @@ class MovieSuccessDataset(Dataset):
         budget: float = self.movie_dataset_df['budget'].iloc[index]
         revenue: float = self.movie_dataset_df['revenue'].iloc[index]
 
-        success_label: float = float(revenue > budget)
-        y: Tensor = torch.tensor([success_label])
+        y: int = int(revenue > budget)
+        # y: Tensor = torch.tensor([success_label], dtype=torch.long)
 
         return X_image, X_plot, y
 
@@ -72,17 +72,18 @@ class MovieSuccessDataset(Dataset):
 def get_class_weights(movie_data_set: MovieSuccessDataset) -> np.ndarray:
     data_set_size: int = len(movie_data_set)
 
-    success_array: np.ndarray = np.zeros(data_set_size)
+    success_array: np.ndarray = np.zeros(data_set_size, dtype=int)
 
     for index, instance in enumerate(movie_data_set):
-        success_array[index] = instance[2].item()
+        target = instance[2]
+        success_array[index] = target
 
-    success_array = success_array.astype(int)
     success_counts: np.ndarray = np.bincount(success_array)
     success_array = success_counts[success_array]
     success_array = 1.0 / success_array
 
     return success_array
+
 
 # QUICK CLASS DEMO
 if __name__ == '__main__':
@@ -98,7 +99,10 @@ if __name__ == '__main__':
 
     data_dict = ms_ds.get_data(sample_index)
     data_t = ms_ds[sample_index]
-    success: str = 'YES' if data_t[2].item() == 1.0 else 'NO'
+    labels: List[str] = ['NO', 'YES']
+    # _, index = torch.max(data_t[2], 0)
+    index = data_t[2]
+    success: str = labels[int(index)]
 
     ax.set_title(f"Title: {data_dict['title']}\nSuccess: {success}")
     ax.axis('off')

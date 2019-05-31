@@ -13,7 +13,7 @@ from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR, DATA_DIR
 def get_class_ratio(dataset: MovieSuccessDataset) -> float:
     success_counter: float = 0.0
     for movie_instance in tqdm(dataset):
-        success_counter += movie_instance[2].item()
+        success_counter += movie_instance[2]
 
     return success_counter / len(dataset)
 
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     number_of_movies: int = len(movie_data_set)
     for i, movie_instance in enumerate(movie_data_set):
         raw_data = movie_data_set.get_data(i)
-        number_of_successes += movie_instance[2].item()
+        number_of_successes += movie_instance[2]
 
     print(f'Number of successes: {number_of_successes}/{number_of_movies}')
 
@@ -68,12 +68,12 @@ if __name__ == '__main__':
 
     # COUNT THE NUMBER OF SUCCESSES: SHOULD BE CLOSE TO 50%
     success_sum: float = 0.0
-    total: float = 0.0
+    total: int = 0
     draws: int = 0
     for batch in weight_data_loader:
         b = batch[2]
         total += len(b)
-        success_sum += torch.sum(b)
+        success_sum += torch.sum(b).item()
         draws += 1
 
     print(f'Draws: {draws} - Success ratio (total): {success_sum / total}({total})')

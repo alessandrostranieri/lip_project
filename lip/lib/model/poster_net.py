@@ -14,17 +14,17 @@ class PosterFeaturesNet(nn.Module):
         super(PosterFeaturesNet, self).__init__()
 
         # CONVOLUTION AND DOWNSAMPLE
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=6, kernel_size=5, padding=2)
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=5, padding=2)
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
         # OUTPUT HAS SIX CHANNELS - THE IMAGE HAS SIDE CROPPED_IMAGE_SIZE / 2
 
         # INPUT MUST HAVE SIZE CHANNELS
-        self.conv2 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=5, padding=2)
+        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, padding=2)
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
         # OUTPUT HAS SIXTEEN CHANNELS
 
         self.image_side = WORKING_IMAGE_SIDE // 4  # TWO STEPS OF MAX POOL
-        self.fc1 = nn.Linear(in_features=16 * self.image_side * self.image_side, out_features=120)
+        self.fc1 = nn.Linear(in_features=32 * self.image_side * self.image_side, out_features=120)
         self.fc2 = nn.Linear(in_features=120, out_features=84)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -41,19 +41,20 @@ class PosterNet(nn.Module):
         super(PosterNet, self).__init__()
 
         self.features_network: nn.Module = features_network
-
-        self.fc3 = nn.Linear(in_features=84, out_features=10)
-        self.fc4 = nn.Linear(in_features=10, out_features=2)
-        self.fc5 = nn.Linear(in_features=2, out_features=1)
-
-        self.out = nn.Sigmoid()
+        self.dropout = nn.Dropout(0.2)
+        self.fc3 = nn.Linear(in_features=84, out_features=32)
+        self.fc4 = nn.Linear(in_features=32, out_features=16)
+        self.fc5 = nn.Linear(in_features=16, out_features=2)
+        self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.features_network(x)
-        x = self.fc3(x)
-        x = self.fc4(x)
+        x = F.relu(self.features_network(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc3(x))
+        x = F.relu(self.fc4(x))
+        x = self.dropout(x)
         x = self.fc5(x)
-        y = self.out(x)
+        y = self.softmax(x)
         return y
 
 
