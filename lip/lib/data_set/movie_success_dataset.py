@@ -8,6 +8,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 from torch import Tensor
 from torch.utils.data import Dataset
+import numpy as np
 
 from lip.lib.data_set.dictionary import Dictionary
 from lip.utils.paths import POSTERS_DIR, MOVIE_DATA_FILE, DATA_DIR
@@ -54,7 +55,7 @@ class MovieSuccessDataset(Dataset):
         budget: float = self.movie_dataset_df['budget'].iloc[index]
         revenue: float = self.movie_dataset_df['revenue'].iloc[index]
 
-        success_label: float = float((revenue / budget) >= 1.0)
+        success_label: float = float(revenue > budget)
         y: Tensor = torch.tensor([success_label])
 
         return X_image, X_plot, y
@@ -67,6 +68,21 @@ class MovieSuccessDataset(Dataset):
 
         return {'image': image, 'title': title, 'plot': plot}
 
+
+def get_class_weights(movie_data_set: MovieSuccessDataset) -> np.ndarray:
+    data_set_size: int = len(movie_data_set)
+
+    success_array: np.ndarray = np.zeros(data_set_size)
+
+    for index, instance in enumerate(movie_data_set):
+        success_array[index] = instance[2].item()
+
+    success_array = success_array.astype(int)
+    success_counts: np.ndarray = np.bincount(success_array)
+    success_array = success_counts[success_array]
+    success_array = 1.0 / success_array
+
+    return success_array
 
 # QUICK CLASS DEMO
 if __name__ == '__main__':
