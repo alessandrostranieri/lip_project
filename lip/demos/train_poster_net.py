@@ -7,9 +7,10 @@ from torch import nn
 from torch.nn import BCELoss
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, Resize
+import numpy as np
 
 from lip.lib.data_set.dictionary import Dictionary
-from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset
+from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset, get_class_weights
 from lip.lib.model.poster_net import PosterNet, PosterFeaturesNet
 from lip.utils.common import WORKING_IMAGE_SIDE
 from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR, DATA_DIR
@@ -36,6 +37,12 @@ if __name__ == '__main__':
                                                                                WORKING_IMAGE_SIDE)),
                                                                        ToTensor()]))
 
+    # MODEL
+    features_nn: nn.Module = PosterFeaturesNet()
+    net: PosterNet = PosterNet(features_nn)
+    if cuda_available:
+        net.cuda(device)
+
     data_set_size: int = len(movie_data_set)
     print(f'Size of the data-set: {data_set_size}')
 
@@ -43,9 +50,12 @@ if __name__ == '__main__':
     val_data_set_size: int = data_set_size - train_data_set_size
     train_dataset, val_dataset = torch.utils.data.random_split(movie_data_set, [train_data_set_size,
                                                                                 val_data_set_size])
+    weights: np.ndarray = get_class_weights(train_dataset)
 
-    train_data_set_loader: DataLoader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    val_data_set_loader: DataLoader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+    weighted_sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, len(weights))
+    train_data_set_loader: DataLoader = DataLoader(train_dataset, batch_size=BATCH_SIZE, sampler=weighted_sampler,
+                                                   drop_last=True)
+    val_data_set_loader: DataLoader = DataLoader(val_dataset, batch_size=BATCH_SIZE, drop_last=True)
     data_set_loaders: Dict[str, DataLoader] = {'train': train_data_set_loader,
                                                'val': val_data_set_loader}
 
@@ -53,20 +63,14 @@ if __name__ == '__main__':
                       'val': len(val_dataset)}
     print(f'Data-set sizes: {data_set_sizes}')
 
-    # MODEL
-    features_nn: nn.Module = PosterFeaturesNet()
-    net: PosterNet = PosterNet(features_nn)
-    if cuda_available:
-        net.cuda(device)
-
     loss_function: BCELoss = BCELoss()
     if cuda_available:
         loss_function.cuda(device)
 
-    optimizer = optim.Adam(net.parameters(), lr=0.001)
+    optimizer = optim.SGD(net.parameters(), lr=0.001)
 
     # TRAINING
-    NUM_EPOCHS: int = 1
+    NUM_EPOCHS: int = 20
 
     best_model_wts = copy.deepcopy(net.state_dict())
     best_acc = 0.0

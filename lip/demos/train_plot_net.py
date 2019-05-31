@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
     # MODEL
     features_nn: nn.Module = PlotFeaturesNet(vocab_size=2001)
-    net: PosterNet = PlotNet(features_nn)
+    net: PlotNet = PlotNet(features_nn)
     if cuda_available:
         net.cuda(device)
 
