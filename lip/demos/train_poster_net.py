@@ -1,6 +1,8 @@
 import copy
 from typing import Dict, List
 
+import pandas as pd
+import pathlib as pl
 import torch
 import torch.optim as optim
 from torch import nn
@@ -13,13 +15,21 @@ from lip.lib.data_set.dictionary import Dictionary
 from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset, get_class_weights
 from lip.lib.model.poster_net import PosterNet, PosterFeaturesNet
 from lip.utils.common import WORKING_IMAGE_SIDE
-from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR, DATA_DIR
+from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR, DATA_DIR, RESULTS_DIR
 
 if __name__ == '__main__':
 
+    # RANDOM SEED
     torch.manual_seed(42)
 
+    # SAVE DIRECTORY
+    save_dir: pl.Path = RESULTS_DIR / 'poster'
+    assert save_dir.exists(), 'Save directory does not exist'
+    for path_item in save_dir.iterdir():
+        assert False, f'The directory {save_dir} is not empty'
+
     # CUDA
+    torch.cuda.init()
     cuda_available: bool = True
     if torch.cuda.is_available():
         print("CUDA available")
@@ -28,21 +38,17 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if cuda_available else "cpu")
 
-    # DATA
+    # PARAMETERS
     SPLIT_RATIO: float = 0.7
     BATCH_SIZE: int = 8
+    NUM_EPOCHS: int = 15
 
+    # DATASET
     movie_data_set: MovieSuccessDataset = MovieSuccessDataset(MOVIE_DATA_FILE,
                                                               POSTERS_DIR,
                                                               Dictionary(DATA_DIR / 'dict2000.json'),
                                                               Compose([RandomCrop(WORKING_IMAGE_SIDE),
                                                                        ToTensor()]))
-
-    # MODEL
-    features_nn: nn.Module = PosterFeaturesNet()
-    net: PosterNet = PosterNet(features_nn)
-    if cuda_available:
-        net.cuda(device)
 
     data_set_size: int = len(movie_data_set)
     print(f'Size of the data-set: {data_set_size}')
@@ -66,18 +72,24 @@ if __name__ == '__main__':
                       'val': len(val_dataset)}
     print(f'Data-set sizes: {data_set_sizes}')
 
+    # MODEL
+    features_nn: nn.Module = PosterFeaturesNet()
+    net: PosterNet = PosterNet(features_nn)
+    if cuda_available:
+        net.cuda(device)
+
+    # LOSS FUNCTION
     loss_function: CrossEntropyLoss = CrossEntropyLoss()
     if cuda_available:
         loss_function.cuda(device)
 
-    optimizer = optim.Adam(net.parameters(), lr=0.001)
+    # BACKPROPAGATION
+    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
-    # TRAINING
-    NUM_EPOCHS: int = 30
-
+    # HISTORY
     best_model_wts = copy.deepcopy(net.state_dict())
     best_acc = 0.0
-    cutoff = torch.tensor([0.5] * BATCH_SIZE).reshape((BATCH_SIZE, 1)).to(device)
+    best_epoch: int = 0
 
     loss_history: Dict[str, List[float]] = {'train': [],
                                             'val': []}
@@ -101,16 +113,16 @@ if __name__ == '__main__':
             for index, data in enumerate(data_set_loaders[phase]):
 
                 # GET INPUT AND OUTPUT
-                X, Xp, y = data
+                X_image, X_plot, y = data
                 if cuda_available:
-                    X = X.to(device)
+                    X_image = X_image.to(device)
                     y = y.to(device)
 
                 if phase == 'train':
                     optimizer.zero_grad()
 
                 # CALCULATE THE PREDICTION
-                y_pred = net(X)
+                y_pred = net(X_image)
 
                 # CALCULATE THE LOSS ON THE PREDICTION
                 loss = loss_function(y_pred, y)
@@ -127,7 +139,7 @@ if __name__ == '__main__':
                 else:
                     correct = np.squeeze(correct_tensor.cpu().numpy())
 
-                running_loss += loss.item() * X.size(0)
+                running_loss += loss.item() * X_image.size(0)
                 running_corrects += np.sum(correct)
 
             # EPOCH STATISTCS
@@ -146,3 +158,14 @@ if __name__ == '__main__':
                 best_model_wts = copy.deepcopy(net.state_dict())
 
     print(f'Finished training')
+
+    print(f'Best Accuracy: {best_acc} at epoch {best_epoch}')
+
+    # SAVE HISTORIES
+    loss_df = pd.DataFrame(loss_history)
+    accuracy_df = pd.DataFrame(accuracy_history)
+
+    loss_df.to_csv(save_dir / 'loss_history.csv')
+    accuracy_df.to_csv(save_dir / 'accuracy_history.csv')
+
+    torch.save(net.state_dict(), save_dir / 'plot_net.model')

@@ -10,12 +10,29 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
-from torchvision.models import inception_v3
+from torchvision.models import inception_v3, Inception3
 from torchvision.transforms import Compose, ToTensor, Resize
 
 from lip.lib.data_set.dictionary import Dictionary
 from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset, get_class_weights
-from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR, DATA_DIR
+from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR, DATA_DIR, RESULTS_DIR
+
+
+def get_inception(pretrained: bool) -> Inception3:
+    if pretrained:
+        # LOAD PRE-TRAINED MODEL
+        net = inception_v3(pretrained=True)
+        # FREEZE FEATURE EXTRACTOR
+        for param in net.parameters():
+            param.requires_grad = False
+        # SET FINAL LAYER
+        num_ftrs = net.fc.in_features
+        net.fc = nn.Linear(num_ftrs, 2)
+        return net
+    else:
+        net = inception_v3(num_classes=2)
+        return net
+
 
 if __name__ == '__main__':
 
@@ -30,11 +47,16 @@ if __name__ == '__main__':
         print("CUDA not available")
 
     device = torch.device("cuda:0" if cuda_available else "cpu")
-    # cuda_available = False
 
-    # DATA
-    SPLIT_RATIO: float = 0.7
+    save_dir: pl.Path = RESULTS_DIR / 'inception'
+    assert save_dir.exists(), 'Save directory does not exist'
+    for path_item in save_dir.iterdir():
+        assert False, f'The directory {save_dir} is not empty'
+
+    # PARAMETERS
+    NUM_EPOCHS: int = 1
     BATCH_SIZE: int = 32
+    SPLIT_RATIO: float = 0.7
 
     movie_data_set: MovieSuccessDataset = MovieSuccessDataset(MOVIE_DATA_FILE,
                                                               POSTERS_DIR,
@@ -43,15 +65,7 @@ if __name__ == '__main__':
                                                                        ToTensor()]))
 
     # MODEL
-
-    # LOAD PRE-TRAINED MODEL
-    net = inception_v3(pretrained=True)
-    # FREEZE FEATURE EXTRACTOR
-    for param in net.parameters():
-        param.requires_grad = False
-    # SET FINAL LAYER
-    num_ftrs = net.fc.in_features
-    net.fc = nn.Linear(num_ftrs, 2)
+    net: Inception3 = get_inception(pretrained=False)
     if cuda_available:
         net.cuda(device)
 
@@ -85,7 +99,6 @@ if __name__ == '__main__':
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
     # TRAINING
-    NUM_EPOCHS: int = 50
 
     best_model_wts = copy.deepcopy(net.state_dict())
     best_acc = 0.0
@@ -172,8 +185,7 @@ if __name__ == '__main__':
     loss_df = pd.DataFrame(loss_history)
     accuracy_df = pd.DataFrame(accuracy_history)
 
-    loss_df.to_csv('poster/loss_history.csv')
-    accuracy_df.to_csv('poster/accuracy_history.csv')
+    loss_df.to_csv(save_dir / 'loss_history.csv')
+    accuracy_df.to_csv(save_dir / 'accuracy_history.csv')
 
-    torch.save(net.state_dict(), 'poster/plot_net.model')
-
+    torch.save(net.state_dict(),  save_dir / 'plot_net.model')
