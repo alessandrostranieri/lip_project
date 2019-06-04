@@ -47,15 +47,14 @@ class PlotNet(nn.Module):
 
         self.features_network: nn.Module = features_network
 
-        self.fc1 = nn.Linear(16, 1)
-        self.sigmoid = nn.Sigmoid()
+        self.fc1 = nn.Linear(16, 2)
+        self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.features_network(x)
         x = self.fc1(x)
-        out = self.sigmoid(x)
-
-        return out
+        y = self.softmax(x)
+        return y
 
 
 if __name__ == '__main__':

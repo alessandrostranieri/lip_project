@@ -1,8 +1,9 @@
 import copy
+import pathlib as pl
 from typing import Dict, List
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import torch
 import torch.optim as optim
 from torch import nn
@@ -10,7 +11,7 @@ from torch.nn import CrossEntropyLoss
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from torchvision.models import inception_v3
-from torchvision.transforms import Compose, ToTensor, Resize, Normalize
+from torchvision.transforms import Compose, ToTensor, Resize
 
 from lip.lib.data_set.dictionary import Dictionary
 from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset, get_class_weights
@@ -118,6 +119,7 @@ if __name__ == '__main__':
                     X = X.to(device)
                     y = y.to(device)
 
+                # WE NEED TO ZERO THE GRADIENTS BEFORE TRAINING OVER A BATCH
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
@@ -170,8 +172,8 @@ if __name__ == '__main__':
     loss_df = pd.DataFrame(loss_history)
     accuracy_df = pd.DataFrame(accuracy_history)
 
-    loss_df.to_csv('poster_inception_loss_history.csv')
-    accuracy_df.to_csv('poster_inception_accuracy_history.csv')
+    loss_df.to_csv('poster/loss_history.csv')
+    accuracy_df.to_csv('poster/accuracy_history.csv')
 
-    torch.save(net.state_dict(), 'poster_inception.model')
+    torch.save(net.state_dict(), 'poster/plot_net.model')
 

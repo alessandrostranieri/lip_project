@@ -1,41 +1,41 @@
 import copy
 from typing import Dict, List
 
+import numpy as np
+import pandas as pd
 import torch
 import torch.optim as optim
 from torch import nn
-from torch.nn import BCELoss
+from torch.nn import CrossEntropyLoss
+from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, Resize
 
 from lip.lib.data_set.dictionary import Dictionary
-from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset
+from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset, get_class_weights
 from lip.lib.model.plot_net import PlotNet, PlotFeaturesNet
-from lip.lib.model.poster_net import PosterNet
-from lip.utils.common import WORKING_IMAGE_SIDE
 from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR, DATA_DIR
 
 if __name__ == '__main__':
 
     # CUDA
+    torch.cuda.init()
     cuda_available: bool = True
     if torch.cuda.is_available():
         print("CUDA available")
     else:
         print("CUDA not available")
-    # cuda_available = False
 
     device = torch.device("cuda:0" if cuda_available else "cpu")
 
     # DATA
     SPLIT_RATIO: float = 0.7
-    BATCH_SIZE: int = 4
+    BATCH_SIZE: int = 32
 
     movie_data_set: MovieSuccessDataset = MovieSuccessDataset(MOVIE_DATA_FILE,
                                                               POSTERS_DIR,
                                                               Dictionary(DATA_DIR / 'dict2000.json'),
-                                                              Compose([Resize((WORKING_IMAGE_SIDE,
-                                                                               WORKING_IMAGE_SIDE)),
+                                                              Compose([Resize((299, 299)),
                                                                        ToTensor()]))
 
     data_set_size: int = len(movie_data_set)
@@ -45,9 +45,14 @@ if __name__ == '__main__':
     val_data_set_size: int = data_set_size - train_data_set_size
     train_dataset, val_dataset = torch.utils.data.random_split(movie_data_set, [train_data_set_size,
                                                                                 val_data_set_size])
+    weights: np.ndarray = get_class_weights(train_dataset)
 
-    train_data_set_loader: DataLoader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    val_data_set_loader: DataLoader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+    weighted_sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, len(weights))
+    train_data_set_loader: DataLoader = DataLoader(train_dataset,
+                                                   batch_size=BATCH_SIZE,
+                                                   sampler=weighted_sampler,
+                                                   drop_last=True)
+    val_data_set_loader: DataLoader = DataLoader(val_dataset, batch_size=BATCH_SIZE, drop_last=True)
     data_set_loaders: Dict[str, DataLoader] = {'train': train_data_set_loader,
                                                'val': val_data_set_loader}
 
@@ -61,18 +66,19 @@ if __name__ == '__main__':
     if cuda_available:
         net.cuda(device)
 
-    loss_function: BCELoss = BCELoss()
+    loss_function: CrossEntropyLoss = CrossEntropyLoss()
     if cuda_available:
         loss_function.cuda(device)
 
-    optimizer = optim.Adam(net.parameters(), lr=0.001)
+    optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9)
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
     # TRAINING
-    NUM_EPOCHS: int = 10
+    NUM_EPOCHS: int = 50
 
     best_model_wts = copy.deepcopy(net.state_dict())
     best_acc = 0.0
-    cutoff = torch.tensor([0.5] * BATCH_SIZE).reshape((BATCH_SIZE, 1)).to(device)
+    best_epoch: int = 0
 
     loss_history: Dict[str, List[float]] = {'train': [],
                                             'val': []}
@@ -86,6 +92,7 @@ if __name__ == '__main__':
         for phase in ['train', 'val']:
             print(f'Phase {phase}')
             if phase == 'train':
+                exp_lr_scheduler.step(epoch)
                 net.train()
             else:
                 net.eval()
@@ -109,8 +116,12 @@ if __name__ == '__main__':
                     # CALCULATE THE PREDICTION
                     y_pred = net(X_plot)
 
-                    predicted_labels = (y_pred >= cutoff).float()
-                    corrects = (predicted_labels == y).float()
+                    _, predicted_labels = torch.max(y_pred, 1)
+                    correct_tensor = predicted_labels.eq(y.data.view_as(predicted_labels))
+                    if not cuda_available:
+                        correct = np.squeeze(correct_tensor.numpy())
+                    else:
+                        correct = np.squeeze(correct_tensor.cpu().numpy())
 
                     # CALCULATE THE LOSS ON THE PREDICTION
                     loss = loss_function(y_pred, y)
@@ -121,7 +132,7 @@ if __name__ == '__main__':
                         optimizer.step()
 
                 running_loss += loss.item() * X_plot.size(0)
-                running_corrects += torch.sum(corrects)
+                running_corrects += np.sum(correct)
 
             # EPOCH STATISTCS
             epoch_loss = running_loss / data_set_sizes[phase]
@@ -137,5 +148,17 @@ if __name__ == '__main__':
             if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(net.state_dict())
+                best_epoch = epoch
 
     print(f'Finished training')
+
+    print(f'Best Accuracy: {best_acc} at epoch {best_epoch}')
+
+    # SAVE HISTORIES
+    loss_df = pd.DataFrame(loss_history)
+    accuracy_df = pd.DataFrame(accuracy_history)
+
+    loss_df.to_csv('plot/loss_history.csv')
+    accuracy_df.to_csv('plot/accuracy_history.csv')
+
+    torch.save(net.state_dict(), 'plot/plot_net.model')
