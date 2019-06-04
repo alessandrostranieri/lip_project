@@ -23,7 +23,7 @@ if __name__ == '__main__':
     torch.manual_seed(42)
 
     # SAVE DIRECTORY
-    save_dir: pl.Path = RESULTS_DIR / 'poster'
+    save_dir: pl.Path = RESULTS_DIR / 'temp'
     assert save_dir.exists(), 'Save directory does not exist'
     for path_item in save_dir.iterdir():
         assert False, f'The directory {save_dir} is not empty'
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     # PARAMETERS
     SPLIT_RATIO: float = 0.7
     BATCH_SIZE: int = 8
-    NUM_EPOCHS: int = 15
+    NUM_EPOCHS: int = 1
 
     # DATASET
     movie_data_set: MovieSuccessDataset = MovieSuccessDataset(MOVIE_DATA_FILE,
@@ -122,7 +122,7 @@ if __name__ == '__main__':
                     optimizer.zero_grad()
 
                 # CALCULATE THE PREDICTION
-                y_pred = net(X_image)
+                y_pred = net(X_image, X_plot)
 
                 # CALCULATE THE LOSS ON THE PREDICTION
                 loss = loss_function(y_pred, y)

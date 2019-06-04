@@ -1,6 +1,7 @@
 import copy
 from typing import Dict, List
 
+import pathlib as pl
 import numpy as np
 import pandas as pd
 import torch
@@ -14,9 +15,18 @@ from torchvision.transforms import Compose, ToTensor, Resize
 from lip.lib.data_set.dictionary import Dictionary
 from lip.lib.data_set.movie_success_dataset import MovieSuccessDataset, get_class_weights
 from lip.lib.model.plot_net import PlotNet, PlotFeaturesNet
-from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR, DATA_DIR
+from lip.utils.paths import MOVIE_DATA_FILE, POSTERS_DIR, DATA_DIR, RESULTS_DIR
 
 if __name__ == '__main__':
+
+    # RANDOM SEED
+    torch.manual_seed(42)
+
+    # SAVE DIRECTORY
+    save_dir: pl.Path = RESULTS_DIR / 'plot'
+    assert save_dir.exists(), 'Save directory does not exist'
+    for path_item in save_dir.iterdir():
+        assert False, f'The directory {save_dir} is not empty'
 
     # CUDA
     torch.cuda.init()
@@ -31,6 +41,7 @@ if __name__ == '__main__':
     # DATA
     SPLIT_RATIO: float = 0.7
     BATCH_SIZE: int = 32
+    NUM_EPOCHS: int = 15
 
     movie_data_set: MovieSuccessDataset = MovieSuccessDataset(MOVIE_DATA_FILE,
                                                               POSTERS_DIR,
@@ -74,7 +85,6 @@ if __name__ == '__main__':
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
     # TRAINING
-    NUM_EPOCHS: int = 50
 
     best_model_wts = copy.deepcopy(net.state_dict())
     best_acc = 0.0
@@ -158,7 +168,7 @@ if __name__ == '__main__':
     loss_df = pd.DataFrame(loss_history)
     accuracy_df = pd.DataFrame(accuracy_history)
 
-    loss_df.to_csv('plot/loss_history.csv')
-    accuracy_df.to_csv('plot/accuracy_history.csv')
+    loss_df.to_csv(save_dir / 'loss_history.csv')
+    accuracy_df.to_csv(save_dir / 'accuracy_history.csv')
 
-    torch.save(net.state_dict(), 'plot/plot_net.model')
+    torch.save(net.state_dict(), save_dir / 'plot_net.model')

@@ -23,16 +23,15 @@ class MovieNet(nn.Module):
         # OUPUT IS 84 + 16 = 100
         self.fc1 = nn.Linear(in_features=100, out_features=50)
         self.fc2 = nn.Linear(in_features=50, out_features=10)
-        self.fc3 = nn.Linear(in_features=10, out_features=1)
-        self.sigmoid = nn.Sigmoid()
+        self.fc3 = nn.Linear(in_features=10, out_features=2)
+        self.log_softmax = nn.LogSoftmax(dim=1)
 
-    def forward(self, x: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        # GIVE GOOD NAMES TO INPUT
-        x_poster: torch.Tensor = x[0]
-        x_plot: torch.Tensor = x[1]
-
+    def forward(self, x_poster: torch.Tensor, x_plot: torch.Tensor) -> torch.Tensor:
         # WE CALCULATE THE FEATURES INDEPENDENTLY
-        poster_out: torch.Tensor = self.poster_net(x_poster)
+        if self.training:
+            poster_out, aux = self.poster_net(x_poster)
+        else:
+            poster_out = self.poster_net(x_poster)
         plot_out: torch.Tensor = self.plot_net(x_plot)
 
         # CONCATENATE
@@ -43,7 +42,7 @@ class MovieNet(nn.Module):
         x = self.fc2(x)
         x = self.fc3(x)
 
-        out = self.sigmoid(x)
+        out = self.log_softmax(x)
 
         return out
 

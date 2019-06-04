@@ -47,8 +47,8 @@ class PosterNet(nn.Module):
         self.fc5 = nn.Linear(in_features=16, out_features=2)
         self.softmax = nn.LogSoftmax(dim=1)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = F.relu(self.features_network(x))
+    def forward(self, x_image: torch.Tensor, x_plot: torch.Tensor) -> torch.Tensor:
+        x = F.relu(self.features_network(x_image))
         x = self.dropout(x)
         x = F.relu(self.fc3(x))
         x = F.relu(self.fc4(x))
